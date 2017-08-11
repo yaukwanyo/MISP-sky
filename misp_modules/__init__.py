@@ -190,10 +190,10 @@ class QueryModule(tornado.web.RequestHandler):
         try:
             jsonpayload = self.request.body.decode('utf-8')
             dict_payload = json.loads(jsonpayload)
-            if dict_payload.get('timeout'):
-                timeout = datetime.timedelta(seconds=int(dict_payload.get('timeout')))
-            else:
-                timeout = datetime.timedelta(seconds=30)
+            #if dict_payload.get('timeout'):
+            #    timeout = datetime.timedelta(seconds=int(dict_payload.get('timeout')))
+            #else:
+            timeout = datetime.timedelta(seconds=9999)
             response = yield tornado.gen.with_timeout(timeout, self.run_request(jsonpayload))
             self.write(response)
         except tornado.gen.TimeoutError:
