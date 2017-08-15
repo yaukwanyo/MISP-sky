@@ -166,6 +166,7 @@ def getResults(scanReportDict, antivirus):
                 scanResult = ''
                 if 'result' in scanResultDictOfAntivirus['result']:
                     scanResult = scanResultDictOfAntivirus['result']
+                    return scanResult, scanUpdate
                 return "File not detected" , scanUpdate
     return "Not mentioned", "N/A"
 
