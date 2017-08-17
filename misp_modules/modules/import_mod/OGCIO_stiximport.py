@@ -97,9 +97,10 @@ def portScan(url,portNo):
     return status
 
 def CombineScans(vt, quttera, sucuri, port80, port443):
+    toReturn = ""
     toReturn = "Virustotal \r\nDetection Ratio: " + vt +\
                " \r\nQuttera \r\nResult: \r\n" + quttera +\
-               sucuri +\
+               " \r\n " + sucuri +\
                " \r\nPort Status \r\nPort 80: " + port80 + " \r\nPort 443: " + port443 
     return toReturn
 	
@@ -139,7 +140,7 @@ def Quttera(url):
     print("Scanning " + url + " on Quttera...")
 	
     try:
-        complete = WebDriverWait(driver, 60).until(
+        complete = WebDriverWait(driver, 40).until(
             EC.visibility_of_element_located((By.XPATH, "//div[@id='ResultSummary']"))
         )
     except:
@@ -223,31 +224,32 @@ def vtAPIscan(md5, key):
 
     print("Scanning " + md5 + " on virustotal...")
     countOftry = 1
+    toReturn = ""
+    antivirusList = ["Fortinet", "Kaspersky", "McAfee", "Symantec", "TrendMicro", "TrendMicro-Housecall"]
+
     while not response.text:
-        if countOftry<10:
+        if countOftry < 20:
             time.sleep(1)
             countOftry += 1
             print("Try virustotal file scan again")
             response = requests.get('https://www.virustotal.com/vtapi/v2/file/report', params=params, headers=headers)
         else:
-            return []
-
-    print(response.text)
-    
-    antivirusList = ["Fortinet", "Kaspersky", "McAfee", "Symantec", "TrendMicro", "TrendMicro-Housecall"]
+            for antivirus in antivirusList:
+                toReturn += " \r\n\r\n" + antivirus + " Scan Result:\r\n File not found" + " \r\nUpdate: N/A"
+            return toReturn
 
     if response.text:
         json_response = response.json()
             
         result = getScanResults(json_response, antivirusList)
 	
-    toReturn = ""
 	
     for antivirus in antivirusList:
-        #if bool(result[antivirus]) == True: 
-        toReturn += "\r\n\r\n" + antivirus + " Scan Result:\r\n " + result[antivirus] + " \r\nUpdate:\r\n " + result[antivirus + " Scan Date"] + " Scan Date"
-        #else:
-            #toReturn += "\r\n\r\n" + antivirus + " Scan Result:\r\n File not found\r\n" + "Update:\r\n N/A"
+        if bool(result[antivirus]) == True: 
+            toReturn += " \r\n\r\n" + antivirus + " Scan Result:\r\n " + result[antivirus] + " \r\nUpdate:\r\n " + result[antivirus + " Scan Date"] 
+        else:
+            toReturn += "\r\n\r\n" + antivirus + " Scan Result:\r\n File not found\r\n" + " \r\nUpdate:\r\n N/A"
+    print(toReturn)
     return toReturn
 
 def getResults(scanReportDict, antivirus):
@@ -261,9 +263,8 @@ def getResults(scanReportDict, antivirus):
                     scanUpdate = inV
                 elif inK == "detected" and inV == False:
                     detected = False
-                    print("No Virus!!!!!")
             if detected == False:
-                return "File not detected", scanUpdate
+                return "Clean", scanUpdate
             else:
                 return scanResult, scanUpdate
     return "Not mentioend", "N/A" 

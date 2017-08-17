@@ -102,26 +102,6 @@ def vtAPIscan(md5, key):
 
     return result
 
-'''
-def getResults(scanReportDict, antivirus):
-    print("now getting results!!")
-    if antivirus in scanReportDict:
-        scanResultDictOfAntivirus = scanReportDict[antivirus]
-        if "detected" in scanResultDictOfAntivirus:
-            scanUpdate = ""
-            if "update" in scanResultDictOfAntivirus:
-                scanUpdate = scanResultDictOfAntivirus["update"]
-
-            if (scanResultDictOfAntivirus['detected']):
-                scanResult = ''
-                if 'result' in scanResultDictOfAntivirus['result']:
-                    scanResult = scanResultDictOfAntivirus['result']
-                    print(scanResult, scanUpdate)
-                    return scanResult, scanUpdate
-                return "File not detected" , scanUpdate
-    return "Not mentioned", "N/A"
-'''
-
 def getResults(scanReportDict, antivirus):
     for k,v in scanReportDict.items():
        if k == antivirus:
@@ -135,7 +115,7 @@ def getResults(scanReportDict, antivirus):
                     detected = False
                     print("No Virus!!!!!")
             if detected == False:
-                return "File not detected", scanUpdate
+                return "Clean", scanUpdate
             else:
                 return scanResult, scanUpdate
     return "Not mentioend", "N/A" 
@@ -149,10 +129,10 @@ def getScanResults(json_response, antivirusList):
 
         for antivirus in antivirusList:
             d[antivirus], d[antivirus + " Scan Date"] = getResults(scanReportDict, antivirus)
-    '''        
+    '''       
     else: 
         for antivirus in antivirusList:
-            d[antivirus], d[antivirus + " Scan Date"] = "File not found on Virustotal", "N/A"
+            d[antivirus], d[antivirus + " Scan Date"] = "File not found", "N/A"
     '''
     return d
 

@@ -8,12 +8,14 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
+from selenium.common.exceptions import TimeoutException
 import time
 import pymisp as pm
 from pymisp import PyMISP
 from pymisp import MISPEvent
 import argparse
 from collections import OrderedDict
+import socket
 
 misperrors = {'error': 'Error'}
 mispattributes = {'input': ['url', 'hostname', 'domain', "ip-src", "ip-dst", "md5"],
@@ -48,30 +50,30 @@ def handler(q=False):
         ioc = q["ip-src"]
         ioc_type = "ip-src"
         url = cleanURL(q["ip-src"])
-        r["results"] += virustotal(url, "ip-src")
-	#	r["results"] += sucuri(q["ip-src"])
+        comment = scanURL(ioc) 
+        r["results"].append({'types': [ioc_type], "values": [url], "comment": comment})
         
 		
     if "ip-dst" in q: 
         ioc = q["ip-dst"]
         ioc_type = "ip-dst"
         url = cleanURL(q["ip-dst"])
-        r["results"] += virustotal(url, "ip-dst")
-	#	r["results"] += sucuri(q["ip-dst"])
+        comment = scanURL(ioc) 
+        r["results"].append({'types': [ioc_type], "values": [url], "comment": comment})
 		
     if "domain" in q: 
         ioc = q["domain"]
         ioc_type = "domain"
         url = cleanURL(q["domain"])
-        r["results"] += virustotal(url, "domain")
-	#	r["results"] += sucuri(q["domain"])
+        comment = scanURL(ioc) 
+        r["results"].append({'types': [ioc_type], "values": [url], "comment": comment})
 		
     if "hostname" in q:
         ioc = q["hostname"]
         ioc_type = "hostname"
         url = cleanURL(q["hostname"])
-        r["results"] += virustotal(url, "hostname")
-	#	r["results"] += sucuri(q["hostname"])
+        comment = scanURL(ioc) 
+        r["results"].append({'types': [ioc_type], "values": [url], "comment": comment})
 		
     if 'md5' in q:
         ioc = q["md5"]
@@ -82,7 +84,8 @@ def handler(q=False):
         ioc = q["url"]
         ioc_type = "url"
         url = cleanURL(q["url"])
-        r["results"] += virustotal(url, "url")
+        comment = scanURL(ioc) 
+        r["results"].append({'types': [ioc_type], "values": [url], "comment": comment})
 	
     uniq = []
     for res in r["results"]:
@@ -94,6 +97,38 @@ def handler(q=False):
 
     return r
 
+def scanURL(ioc):
+    vt = virustotal(ioc)
+    quttera = Quttera(ioc)
+    sucuri = Sucuri(ioc)
+    port80 = portScan(ioc, 80)
+    port443 = portScan(ioc, 443)
+	
+    toReturn = "Virustotal \r\nDetection Ratio: " + vt +\
+               " \r\nQuttera \r\nResult: \r\n" + quttera +\
+               " \r\n" + sucuri +\
+               " \r\nPort Status \r\nPort 80: " + port80 + " \r\nPort 443: " + port443 
+    return toReturn
+    
+def startBrowsing():
+    display = Display(visible=0, size=(800,600))
+    display.start()
+    driver = webdriver.Chrome()
+    return driver
+
+def portScan(url,portNo):
+    TCPsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    TCPsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    TCPsock.settimeout(2)
+    try:
+        result = TCPsock.connect((url, portNo))
+        if result == 0:
+            status = "Open"
+        else: status = "Close"
+    except:
+        status = "Invalid URL"
+    return status
+	
 def delete_mispAttribute(q, ioc):
 
     myMISPurl = 'http://192.168.56.50'
@@ -167,7 +202,7 @@ def getResults(scanReportDict, antivirus):
                 if 'result' in scanResultDictOfAntivirus['result']:
                     scanResult = scanResultDictOfAntivirus['result']
                     return scanResult, scanUpdate
-                return "File not detected" , scanUpdate
+                return "Clean" , scanUpdate
     return "Not mentioned", "N/A"
 
 def getScanResults(json_response, antivirusList):
@@ -194,63 +229,115 @@ def cleanURL(url):
 
     return url
 
-def virustotal(url, type):
+def Sucuri(url):
 
-    r = []
+    driver = startBrowsing()
+    driver.get("https://sitecheck.sucuri.net/results/" + url)
 
-    print(url)
+    print("Scanning " + url + " on Sucuri...")
+    results = driver.find_elements_by_tag_name("td")
 
-    display = Display(visible=0, size = (800,600))
-    display.start()
-    driver = webdriver.Chrome()
+    try:
+        #Get status
+        endPos = results[3].text.find('"', 2)
+        status = results[3].text[:endPos]
+
+        #Get Web Trust
+        endPos = results[5].text.find('"', 2)
+        webTrust = results[5].text[:endPos]
+        if ":" in webTrust:
+            endPos = webTrust.find(":", 2)
+            webTrust = webTrust[:endPos]
+
+    except:
+        status = "Invalid URL"
+        webTrust = "Invalid URL"
+
+    toReturn = ""
+    toReturn = "Sucuri \r\n Status: \r\n" + status + " \r\nWeb Trust: " + webTrust + " \r\n"
 	
+    return toReturn
+	
+def Quttera(url):
+    driver = startBrowsing()
+    driver.get("http://quttera.com/sitescan/" + url)
+
+    print("Scanning " + url + " on Quttera...")
+	
+    try:
+        complete = WebDriverWait(driver, 60).until(
+            EC.visibility_of_element_located((By.XPATH, "//div[@id='ResultSummary']"))
+        )
+    except:
+        try:
+            malicious = driver.find_element_by_xpath("//div[@class='alert alert-m']").text
+        except:
+            result = "Unreachable"
+            return result
+
+        if "Malicious" in malicious:
+            result = malicious
+            return result
+        '''
+        else: 
+            result = "Unreachable"
+        '''
+    summary = driver.find_element_by_xpath("//div[@id='ResultSummary']")
+    scanResult = summary.find_elements_by_tag_name("h4")
+
+    status = str(scanResult[0].text)
+
+    print (isinstance(status, str))
+    print (status)
+
+    if "No Malware Detected" in status:
+        result = "Clean"
+    elif "Potentially Suspicious" in status:
+        result = "Potentially Suspicious"
+    elif "Malicious" in status:
+        result = "Malicious"
+    else: 
+        result = ""
+		
+    return result		
+	
+def virustotal(url):
+    driver = startBrowsing()
     driver.get("https://www.virustotal.com/en/#url")
 
-    element = WebDriverWait(driver, 60).until(
+    print("Scanning " + url + " on virustotal...")
+	
+    url_input = WebDriverWait(driver, 60).until(
         EC.visibility_of_element_located((By.XPATH, "//input[@id='url']"))
     )
-	
-    elem = driver.find_element_by_xpath("//input[@id='url']")
-    elem.send_keys(url)
-	
+
+    url_input = driver.find_element_by_xpath("//input[@id='url']")
+    url_input.send_keys(url)
     submit = driver.find_element_by_xpath("//button[@id='btn-scan-url']")
     submit.click()
-	
-    time.sleep(1)
-	
-    countOftry = 0
+    
+    print("submitted url!")
 
-    '''
     try:
-        reanalyze = driver.find_element_by_xpath("//a[@id='btn-url-reanalyse']").get_attribute('href')
-        countOftry += 1
-    except: 
-        if countOftry < 10 :
-            time.sleep(1)
-            print("try virustotal again")
-            reanalyze = driver.find_element_by_xpath("//a[@id='btn-url-reanalyse']").get_attribute('href')
-            countOftry += 1
-    '''
-    element = WebDriverWait(driver, 6000).until(
-        EC.visibility_of_element_located((By.XPATH, "//a[@id='btn-url-reanalyse']"))
-    )
-	
+        reanalyze = WebDriverWait(driver, 300).until(
+            EC.visibility_of_element_located((By.XPATH, "//a[@id='btn-url-reanalyse']"))
+        )
+    except TimeoutException:
+        return ""
+    
     reanalyze = driver.find_element_by_xpath("//a[@id='btn-url-reanalyse']").get_attribute('href')
 
-    driver.get(str(reanalyze))
-	
-    element = WebDriverWait(driver,6000).until(
+    driver.get(reanalyze)
+
+    print("Now reanalyzingggggg")
+    element = WebDriverWait(driver, 6000).until(
         EC.visibility_of_element_located((By.TAG_NAME, "td"))
     )
-	
+    
     cells = driver.find_elements_by_tag_name("td")
     ratio = cells[3].text
 	
-    comment = "VT Detection Ratio: " + ratio
-	
-    r.append({'types': [type], "values": [url], "comment": comment})
-	
-    return r
+    return ratio
 	
 	
 def introspection():

@@ -11,7 +11,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 from pyvirtualdisplay import Display
 import time
-from socket import *
+import socket 
 
 misperrors = {'error': 'Error'}
 
@@ -45,11 +45,10 @@ def handler(q=False):
     writer = csv.DictWriter(response, fieldnames=["Type", "Value", "Virustotal Detection Ratio", "Quttera.com", "Sucuri", "Port Status"])
 
     writer.writeheader()
-   # csv.QUOTE_ALL
+ 
     for event in request["data"]:
         for attribute in event["Attribute"]:
             if attribute["type"] in mispattributes["input"]:
-                status, webTrust = Sucuri(attribute["value"])
                 p80 = portScan(attribute["value"],80)
                 p443 = portScan(attribute["value"], 443)
                 
@@ -58,10 +57,10 @@ def handler(q=False):
                     "Value": attribute["value"],
                     "Virustotal Detection Ratio": "'" + virustotal(attribute["value"]),
                     "Quttera.com": Quttera(attribute["value"]),
-                    "Sucuri": "Status: " + "\r\n" + status + "\r\n" + "\r\n" + "Web Trust: " + "\r\n" + webTrust,
+                    "Sucuri": Sucuri(attribute["value"]),
                     "Port Status": "Port 80:" + "\r\n" + p80 + "\r\n" + "\r\n" + "Port 443:" + "\r\n" + p443
                 })
-    #csv.QUOTE_ALL                   
+                   
     r = {"response":[], "data":str(base64.b64encode(bytes(response.getvalue(), 'utf-8')), 'utf-8')}
     return r
 
@@ -71,78 +70,20 @@ def startBrowsing():
     driver = webdriver.Chrome()
     return driver
 
-'''
-def yougetsignal(url):
-    driver = startBrowsing()
-
-    driver.get("https://www.yougetsignal.com/tools/open-ports/")
-
-    add_input = driver.find_element_by_xpath("//input[@id='remoteAddress']")
-    add_input.send_keys(url)
-
-    port_input = driver.find_element_by_xpath("//input[@id='portNumber']")
-    port_input.send_keys("80")
-
-    submit = driver.find_element_by_xpath("//input[@type='submit']").click()
-
-    print("Checking port status~~")
-    
-    complete = WebDriverWait(driver,60).until(
-        EC.visibility_of_element_located((By.XPATH, "//a[@href='http://'+ url]"))
-    )
-    
-
-    time.sleep(10)
-     
-
-    p80 = driver.find_element_by_xpath("//div[@id='statusDescription']").text
-    p80_close = p80.find("closed")
-    p80_open = p80.find("open")
-    p80_result = ""
-
-    if p80_close > 0:
-        p80_result = "Close"
-    elif p80_open > 0:
-        p80_result = "Open"
-    
-    return p80_result
-            
-def portStatus(driver, portNo):
-    port_input = driver.find_element_by_xpath("//input[@id='portNumber']")
-    port_input.send_keys(portNo)
-
-    print("Checking port status")
-
-    complete = WebDriverWait(driver, 60).until(
-        EC.visibility_of_element_located((By.XPATH, "//    
-'''
-
 def portScan(url,portNo):
-    s = socket(AF_INET, SOCK_STREAM)
-    s.settimeout(2)
-    result = s.connect_ex((url, portNo))
-    if result == 0:
-        status = "Open"
-    else:
-        status = "Close"
-        #increase_error_count()
-    s.close()
+    TCPsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    TCPsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    TCPsock.settimeout(2)
+    print("Scanning " + url + " Port " + str(portNo))
+    try:
+        result = TCPsock.connect((url, portNo))
+        if result == 0:
+            status = "Open"
+        else: 
+            status = "Close"
+    except:
+        status = "Invalid URL"
     return status
-
-def increase_error_count():
-    with open('/var/www/MISP/app/tmp/logs/ErrorCount.log') as f:
-        for line in f:
-            error_count = line
-    error_count = int(error_count)
-    print("Error counter: " + str(error_count))
-    file = open('ErrorCount.log', 'w')
-    file.write(str(error_count + 1))
-    file.close()
-    if error_count == 10:
-        file = open('/var/www/MISP/app/tmp/logs/ErrorCount.log', 'w')
-        file.write('0')
-        file.close()
-
 
 def Sucuri(url):
 
@@ -150,25 +91,38 @@ def Sucuri(url):
 
     driver.get("https://sitecheck.sucuri.net/results/" + url)
 
-    print("SUCURI!!!")
+    print("Scanning " + url + " on Sucuri...")
 
     results = driver.find_elements_by_tag_name("td")
 
-    endPos = results[3].text.find('"', 2)
+    try:
+        # Get status
+        endPos = results[3].text.find('"', 2)
+        status = results[3].text[:endPos]
 
-    status = results[3].text[:endPos]
+        # Get Web Trust
+        endPos = results[5].text.find('"', 2)
+        webTrust = results[5].text[:endPos]
+        if ":" in webTrust:
+            endPos = webTrust.find(":", 2)
+            webTrust = webTrust[:endPos]
+    except:
+        status = "Invalid URL"
+        webTrust = "Invalid URL"
 
-    endPos = results[5].text.find('"', 2)
-    webTrust = results[5].text[:endPos]
+    toReturn = ""
+    toReturn = "Sucuri \r\n Status: \r\n" + status + "\r\n\r\nWeb Trust: " + webTrust + " \r\n"
 
-    return status, webTrust
+    return toReturn
  
 def Quttera(url):
     driver = startBrowsing()
     driver.get("http://quttera.com/sitescan/" + url)
 
+    print("Scanning " + url + " on Quttera...")
+
     try:
-        complete = WebDriverWait(driver, 60).until(
+        complete = WebDriverWait(driver, 40).until(
             EC.visibility_of_element_located((By.XPATH, "//div[@id='ResultSummary']"))
         )
     except:
@@ -217,8 +171,7 @@ def virustotal(url):
     url_input.send_keys(url)
     submit = driver.find_element_by_xpath("//button[@id='btn-scan-url']")
     submit.click()
-    
-    print("submitted url!")
+    print("Scanning " + url + " on virustotal...")
 
     try:
         reanalyze = WebDriverWait(driver, 300).until(
@@ -231,7 +184,7 @@ def virustotal(url):
 
     driver.get(reanalyze)
 
-    print("Now reanalyzingggggg")
+    print("\tReanalyzing URL")
     element = WebDriverWait(driver, 6000).until(
         EC.visibility_of_element_located((By.TAG_NAME, "td"))
     )
