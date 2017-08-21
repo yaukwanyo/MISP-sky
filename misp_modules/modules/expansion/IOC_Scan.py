@@ -145,7 +145,7 @@ def delete_mispAttribute(q, ioc):
         if isinstance(v, dict):
             for inK, inV in v.items():
                 if inK == "Attribute" and isinstance(inV, list):
-                    print("Hello", inV)
+                    
                     for value in inV:
                         if isinstance(value, dict):
                             attrib.append(value)
@@ -155,10 +155,10 @@ def delete_mispAttribute(q, ioc):
     # Delete attribute
     for attribute in attrib:
         if ioc in attribute.values():
-            print("Found attribute!")
+            print("Found attribute")
             for k,v in attribute.items():
                 if k =="id":
-                    print(k,v)
+                    
                     misp.delete_attribute(v)
 
     return ""
@@ -178,7 +178,7 @@ def vtAPIscan(md5, key):
 
     if response.text:
         json_response = response.json()
-        print (json_response)
+        #print (json_response)
         result = getScanResults(json_response, antivirusList)
 
     comment = ""
@@ -265,7 +265,7 @@ def Quttera(url):
     print("Scanning " + url + " on Quttera...")
 	
     try:
-        complete = WebDriverWait(driver, 60).until(
+        complete = WebDriverWait(driver, 15).until(
             EC.visibility_of_element_located((By.XPATH, "//div[@id='ResultSummary']"))
         )
     except:
@@ -316,7 +316,6 @@ def virustotal(url):
     submit = driver.find_element_by_xpath("//button[@id='btn-scan-url']")
     submit.click()
     
-    print("submitted url!")
 
     try:
         reanalyze = WebDriverWait(driver, 300).until(
@@ -329,7 +328,7 @@ def virustotal(url):
 
     driver.get(reanalyze)
 
-    print("Now reanalyzingggggg")
+    print("Reanalyzing...")
     element = WebDriverWait(driver, 6000).until(
         EC.visibility_of_element_located((By.TAG_NAME, "td"))
     )

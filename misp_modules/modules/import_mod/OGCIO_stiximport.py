@@ -140,7 +140,7 @@ def Quttera(url):
     print("Scanning " + url + " on Quttera...")
 	
     try:
-        complete = WebDriverWait(driver, 40).until(
+        complete = WebDriverWait(driver, 10).until(
             EC.visibility_of_element_located((By.XPATH, "//div[@id='ResultSummary']"))
         )
     except:
@@ -181,17 +181,20 @@ def virustotal(url):
     driver.get("https://www.virustotal.com/en/#url")
 
     print("Scanning " + url + " on virustotal...")
-	
-    url_input = WebDriverWait(driver, 60).until(
-        EC.visibility_of_element_located((By.XPATH, "//input[@id='url']"))
-    )
+
+    try:	
+        url_input = WebDriverWait(driver, 60).until(
+            EC.visibility_of_element_located((By.XPATH, "//input[@id='url']"))
+        )
+    except:
+        return "N/A"
 
     url_input = driver.find_element_by_xpath("//input[@id='url']")
     url_input.send_keys(url)
     submit = driver.find_element_by_xpath("//button[@id='btn-scan-url']")
     submit.click()
     
-    print("submitted url!")
+    #print("submitted url!")
 
     try:
         reanalyze = WebDriverWait(driver, 300).until(
@@ -204,7 +207,7 @@ def virustotal(url):
 
     driver.get(reanalyze)
 
-    print("Now reanalyzingggggg")
+    print("Reanalyzing...")
     element = WebDriverWait(driver, 6000).until(
         EC.visibility_of_element_located((By.TAG_NAME, "td"))
     )
@@ -274,7 +277,7 @@ def getScanResults(json_response, antivirusList):
 
     if "scans" in json_response:
         scanReportDict = json_response["scans"]
-        print("got results!!:D")
+        print("Obtained results")
 
         for antivirus in antivirusList:
             d[antivirus], d[antivirus + " Scan Date"] = getResults(scanReportDict, antivirus)
