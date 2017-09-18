@@ -134,11 +134,27 @@ def Sucuri(url):
     return toReturn
  
 def Quttera(url):
-    driver = startBrowsing()
-    driver.get("http://quttera.com/sitescan/" + url)
 
-    print("Scanning " + url + " on Quttera...")
-	
+    status = "N/A"
+    driver = startBrowsing()
+    print("Scanning " + url + " on Quettera")
+
+    try:
+        driver.get("https://quttera.com/detailed_report/" + url)
+    except TimeoutException:
+        print("Scan failed")
+        return status
+    '''
+    try:
+        element = WebDriverWait(driver, 30).until(
+            EC.visibility_of_element_located((By.XPATH, "//div[@class='panel-heading']"))
+        )
+    except:
+        print("Scan Failed")
+        return "N/A"
+    '''
+
+    '''	
     try:
         complete = WebDriverWait(driver, 10).until(
             EC.visibility_of_element_located((By.XPATH, "//div[@id='ResultSummary']"))
@@ -153,10 +169,10 @@ def Quttera(url):
         if "Malicious" in malicious:
             result = malicious
             return result
-        '''
+        
         else: 
             result = "Unreachable"
-        '''
+       
     summary = driver.find_element_by_xpath("//div[@id='ResultSummary']")
     scanResult = summary.find_elements_by_tag_name("h4")
 
@@ -173,8 +189,27 @@ def Quttera(url):
         result = "Malicious"
     else: 
         result = ""
+    '''
 
-    return result
+    results = driver.find_elements_by_xpath("//div[@class='panel-heading']")
+   
+    for result in results:
+        print(result.text)
+        if "No Malware" in result.text:
+            status = "Clean"
+            break
+        elif "Potentially Suspicious" in result.text:
+            status = "Potentially Suspicious"
+            break
+        elif "Malicious" in result.text:
+            status = "Malicious"
+            break
+        else:
+            status = "Unreachable"
+             
+    print(status)
+
+    return status
         
 def virustotal(url):
     driver = startBrowsing()

@@ -260,10 +260,11 @@ def Sucuri(url):
 	
 def Quttera(url):
     driver = startBrowsing()
-    driver.get("http://quttera.com/sitescan/" + url)
+    driver.get("http://quttera.com/detailed_report/" + url)
 
     print("Scanning " + url + " on Quttera...")
-	
+
+    '''	
     try:
         complete = WebDriverWait(driver, 15).until(
             EC.visibility_of_element_located((By.XPATH, "//div[@id='ResultSummary']"))
@@ -278,10 +279,10 @@ def Quttera(url):
         if "Malicious" in malicious:
             result = malicious
             return result
-        '''
-        else: 
-            result = "Unreachable"
-        '''
+        
+        #else: 
+            #result = "Unreachable"
+        
     summary = driver.find_element_by_xpath("//div[@id='ResultSummary']")
     scanResult = summary.find_elements_by_tag_name("h4")
 
@@ -298,8 +299,25 @@ def Quttera(url):
         result = "Malicious"
     else: 
         result = ""
-		
-    return result		
+    '''
+
+    results = driver.find_elements_by_xpath("//div[@class='panel-heading']")
+    
+    for result in results:
+        print(result.text)
+        if "Potentially Suspicious" in result.text:
+            status = "Potentially Suspicious"
+            break
+        elif "Malicious" in result.text:
+            status = "Malicious"
+            break
+        elif "No Malware" in result.text:
+            status = "Clean"
+            break
+        else: 
+            status = "Unreachable"
+    
+    return status		
 	
 def virustotal(url):
     driver = startBrowsing()
