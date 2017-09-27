@@ -50,6 +50,7 @@ def handler(q=False):
 
     return r
 
+# Retrieve scan results
 def Result(comment, antivirus):
     diff = len(antivirus + " Scan Result: ")
     stPos = comment.find(antivirus + " Scan Result: ") + diff

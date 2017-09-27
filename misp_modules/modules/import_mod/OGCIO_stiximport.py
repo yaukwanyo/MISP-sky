@@ -19,8 +19,8 @@ misperrors = {'error': 'Error'}
 userConfig = {}
 inputSource = ['file']
 
-moduleinfo = {'version': '0.2', 'author': 'SK',
-              'description': 'Import some stix stuff',
+moduleinfo = {'version': '1.0', 'author': 'SEC21',
+              'description': 'Import stix and get IOC scan results',
               'module-type': ['import']}
 
 moduleconfig = ["VTapikey"]
@@ -30,11 +30,6 @@ def handler(q=False):
     # Just in case we have no data
     if q is False:
         return False
-    #request = json.loads(q)
-
-    #Get Virustotal API key
-    #key = request["config"].get("VTapikey")
-    #key = q["config"]["VTapikey"]   	
 	
     # The return value
     r = OrderedDict()
@@ -55,59 +50,86 @@ def handler(q=False):
         return json.dumps({"success": 0})
 
     pkg = stix.load_stix(package)
+
     for attrib in pkg.attributes:
 
+        #If it's a md5, scan with virustotal API
         if "md5" in attrib.type:
             md5 = attrib.value
             
             VTAPIresult = vtAPIscan(md5,key)
             r["results"].append({"values": [attrib.value], "types": [attrib.type], "categories": [attrib.category], "comment": VTAPIresult })
-			    
+
+        #If it's domain or url, perform webcrawling			    
         elif "url" in attrib.type or "ip-dst" in attrib.type or "domain" in attrib.type:
             url = attrib.value
-            vt = virustotal(url)
-            quttera = Quttera(url)
-            sucuri = Sucuri(url)
-            port80 = portScan(url, 80)
-            port443 = portScan(url, 443)
-            comment = CombineScans(vt,quttera,sucuri,port80,port443)
+            # If the url contains directory or filename, remove them and create a new attribute
+            if url.find("/", 8) > 0:
+                pos = url.find("/", 8)
+                print(pos)
+                newURL = url[:pos]
+                comment = scanURL(newURL)
+                r["results"].append({"values":[newURL], "types":[attrib.type], "categories": [attrib.category], "comment": comment })
+            comment = scanURL(url)
             r["results"].append({"values": [attrib.value], "types": [attrib.type], "categories": [attrib.category], "comment": comment })
 			
         else:
             r["results"].append({"values": [attrib.value], "types": [attrib.type], "categories": [attrib.category], "comment": " "})
     return r
 
+# Web crawling
+def scanURL(url):
+    vt = virustotal(url)
+    quttera = Quttera(url)
+    sucuri = Sucuri(url)
+    port80 = portScan(url, 80)
+    port443 = portScan(url, 443)
+    comment = CombineScans(vt, quttera, sucuri, port80, port443)
+    return comment
+
+# Start browser
 def startBrowsing():
     display = Display(visible=0, size=(800,600))
     display.start()
     driver = webdriver.Chrome()
+    driver.set_page_load_timeout(40)
     return driver
 
-def portScan(url,portNo):
-    TCPsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    TCPsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    TCPsock.settimeout(2)
-    try:
-        result = TCPsock.connect((url, portNo))
-        if result == 0:
-            status = "Open"
-        else: status = "Close"
-    except:
+
+
+# Scan ports using yougetsignal's api
+def portScan(url, portNo):
+    params = {"remoteAddress": url, "portNumber": portNo}
+    print("Scanning " + url + "Port " + str(portNo) + "...")
+    r = requests.post("https://ports.yougetsignal.com/check-port.php", params)
+    page = r.text
+    print(page)
+    if "/img/flag_green.gif" in page:
+        status = "Open"
+    elif "/img/flag_red.gif" in page:
+        status = "Close"
+    else:
         status = "Invalid URL"
+    print(str(portNo) + ": " +status)
     return status
 
+#Combine scan results
 def CombineScans(vt, quttera, sucuri, port80, port443):
     toReturn = ""
     toReturn = "Virustotal \r\nDetection Ratio: " + vt +\
                " \r\nQuttera \r\nResult: \r\n" + quttera +\
                " \r\n " + sucuri +\
-               " \r\nPort Status \r\nPort 80: " + port80 + " \r\nPort 443: " + port443 
+               " \r\nPort Status \r\nPort 80: \n" + port80 + " \r\nPort 443: \n" + port443 
     return toReturn
-	
+
+#Crawl sucuri	
 def Sucuri(url):
 
     driver = startBrowsing()
-    driver.get("https://sitecheck.sucuri.net/results/" + url)
+    try:
+        driver.get("https://sitecheck.sucuri.net/results/" + url)
+    except TimeoutException:
+        return "Sucuri \r\n Status: N/A \r\n Web Trust: N/A"
 
     print("Scanning " + url + " on Sucuri...")
     results = driver.find_elements_by_tag_name("td")
@@ -133,11 +155,12 @@ def Sucuri(url):
 	
     return toReturn
  
+# Crawl Quttera
 def Quttera(url):
 
     status = "N/A"
     driver = startBrowsing()
-    print("Scanning " + url + " on Quettera")
+    print("Scanning " + url + " on Quttera...")
 
     try:
         driver.get("https://quttera.com/detailed_report/" + url)
@@ -210,13 +233,15 @@ def Quttera(url):
     print(status)
 
     return status
-        
+
+# Crawl virustotal        
 def virustotal(url):
     driver = startBrowsing()
     driver.get("https://www.virustotal.com/en/#url")
 
     print("Scanning " + url + " on virustotal...")
 
+    # Wait until input box appears
     try:	
         url_input = WebDriverWait(driver, 60).until(
             EC.visibility_of_element_located((By.XPATH, "//input[@id='url']"))
@@ -224,40 +249,60 @@ def virustotal(url):
     except:
         return "N/A"
 
+    # enter url
     url_input = driver.find_element_by_xpath("//input[@id='url']")
     url_input.send_keys(url)
-    submit = driver.find_element_by_xpath("//button[@id='btn-scan-url']")
-    submit.click()
-    
-    #print("submitted url!")
 
+
+    # Wait until scan button appears
     try:
-        reanalyze = WebDriverWait(driver, 300).until(
+        #submit = driver.find_element_by_xpath("//button[@id='btn-scan-url']")
+        submit = WebDriverWait(driver, 20).until(
+            EC.visibility_of_element_located((By.XPATH, "//button[@id='btn-scan-url']"))
+        )
+        submit.click()
+    except:
+        return "N/A"
+    
+    # Wait until reanalyse button appears
+    try:
+        reanalyze = WebDriverWait(driver, 30).until(
             EC.visibility_of_element_located((By.XPATH, "//a[@id='btn-url-reanalyse']"))
         )
     except TimeoutException:
-        return ""
+        return "N/A"
     
     reanalyze = driver.find_element_by_xpath("//a[@id='btn-url-reanalyse']").get_attribute('href')
 
     driver.get(reanalyze)
 
     print("Reanalyzing...")
-    element = WebDriverWait(driver, 6000).until(
-        EC.visibility_of_element_located((By.TAG_NAME, "td"))
-    )
-    
+
+    # Wait until reanalysed results appear
+    try:
+        element = WebDriverWait(driver, 6000).until(
+            EC.visibility_of_element_located((By.TAG_NAME, "td"))
+        )
+    except:
+        return "N/A"    
+
+    # Obtain results
     cells = driver.find_elements_by_tag_name("td")
     ratio = cells[3].text
     
     return ratio
-	
+
+# Scan md5 via virustotal api	
 def vtAPIscan(md5, key):
 
     result = OrderedDict()
     params = {'resource': md5, 'apikey': key}
     headers = {'Accept-Encoding': "gzip, deflate", "User-Agent": "gzip, My Python requests library example client or username"}
+
+    # Rescan the md5
     response = requests.post('https://www.virustotal.com/vtapi/v2/file/rescan', params=params)
+
+    # Retrieve the rescanned result
     response = requests.get('https://www.virustotal.com/vtapi/v2/file/report', params=params, headers=headers)
 
     print("Scanning " + md5 + " on virustotal...")
@@ -277,50 +322,29 @@ def vtAPIscan(md5, key):
             return toReturn
 
     if response.text:
-        json_response = response.json()
-            
-        result = getScanResults(json_response, antivirusList)
+        res = json.loads(response.text)
+        for antivirus in antivirusList:
+            try:
+                s = res["scans"]
+                try:
+                    d = s[antivirus]
+                    if d["detected"] == True:
+                        result = d["result"]
+                        update = d["update"]
+                    elif d["detected"] == False:
+                        result = "Not Detected"
+                        update = d["update"]
+                except KeyError:
+                    result = "Not Mentioned"
+                    update = "N/A"
+            except KeyError:
+                 result = "File Not Found"
+                 update = "N/A"
 	
-	
-    for antivirus in antivirusList:
-        if bool(result[antivirus]) == True: 
-            toReturn += " \r\n\r\n" + antivirus + " Scan Result:\r\n " + result[antivirus] + " \r\nUpdate:\r\n " + result[antivirus + " Scan Date"] 
-        else:
-            toReturn += "\r\n\r\n" + antivirus + " Scan Result:\r\n File not found\r\n" + " \r\nUpdate:\r\n N/A"
+            toReturn += " \r\n\r\n" + antivirus + " Scan Result:\r\n " + result + " \r\nUpdate:\r\n " + update
+
     print(toReturn)
     return toReturn
-
-def getResults(scanReportDict, antivirus):
-    for k,v in scanReportDict.items():
-       if k == antivirus:
-            for inK, inV in v.items():
-                if inK == "result" and inV != "None":
-                    scanResult = inV
-                    detected = True
-                elif inK == "update":
-                    scanUpdate = inV
-                elif inK == "detected" and inV == False:
-                    detected = False
-            if detected == False:
-                return "Clean", scanUpdate
-            else:
-                return scanResult, scanUpdate
-    return "Not mentioend", "N/A" 
-
-def getScanResults(json_response, antivirusList):
-    d = OrderedDict()
-
-    if "scans" in json_response:
-        scanReportDict = json_response["scans"]
-        print("Obtained results")
-
-        for antivirus in antivirusList:
-            d[antivirus], d[antivirus + " Scan Date"] = getResults(scanReportDict, antivirus)
-    else:
-        for antivirus in antivirusList:
-            d[antivirus], d[antivirus + " Scan Date"] = "File not found", "N/A"
-    return d
-
 
 def introspection():
     modulesetup = {}

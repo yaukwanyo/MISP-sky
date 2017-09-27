@@ -33,12 +33,16 @@ def handler(q=False):
 
     print(request)
     response = io.StringIO()
+
+    # Define field names
     writer = csv.DictWriter(response, fieldnames=["Type", "Value", "Virustotal Detection Ratio", "Quttera.com", "Sucuri",  "Port status"])
 
     writer.writeheader()
-   # csv.QUOTE_ALL
+
     for event in request["data"]:
         for attribute in event["Attribute"]:
+
+            # Write scan results to rows
             if attribute["type"] in mispattributes["input"]:
                 writer.writerow({
                     "Type": fieldmap[attribute["type"]],
@@ -48,7 +52,7 @@ def handler(q=False):
                     "Sucuri": getSucuriResult(attribute["comment"]),
                     "Port status": getsignal(attribute["comment"])
                 })
-    #csv.QUOTE_ALL                   
+
     r = {"response":[], "data":str(base64.b64encode(bytes(response.getvalue(), 'utf-8')), 'utf-8')}
     return r
 
@@ -57,6 +61,7 @@ def st(comment, keyword):
     stPos = comment.find(keyword) + diff
     return stPos
 
+# Retrieve yougetsignal results
 def getsignal(comment):
     stPos = st(comment, "Port 80: ")
     endPos = comment.find(" Port 443")
@@ -66,6 +71,7 @@ def getsignal(comment):
     result = "Port 80: \r\n" + p80 + "\r\n\r\nPort 443: " + p443
     return result
 
+# Retrieve Sucuri scan results
 def getSucuriResult(comment):
     stPos = st(comment,"Status: ")
     endPos = comment.find(" Web Trust")
@@ -76,20 +82,20 @@ def getSucuriResult(comment):
     sucuri = "Status: \r\n" + status + "\r\n\r\nWeb Trust: \r\n" + webTrust
     return sucuri
 
+
+# Retrieve Quttera scan results
 def getQutteraResult(comment):
     stPos = st(comment, "Quttera Result: ")
     endPos = comment.find(" Sucuri") 
     quttera = comment[stPos:endPos]
     return quttera
 
+# Retrieve virustotal scan results
 def getvtResult(comment):
     stPos = st(comment, "tio: ")
     endPos = comment.find(" Quttera")
     vt = "'" + comment[stPos:endPos]
     return vt
-
-#def getSucuriResult(comment):
-    #stPos = comment.find(
 
 def introspection():
   modulesetup = {}

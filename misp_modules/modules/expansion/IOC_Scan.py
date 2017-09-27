@@ -107,7 +107,7 @@ def scanURL(ioc):
     toReturn = "Virustotal \r\nDetection Ratio: " + vt +\
                " \r\nQuttera \r\nResult: \r\n" + quttera +\
                " \r\n" + sucuri +\
-               " \r\nPort Status \r\nPort 80: " + port80 + " \r\nPort 443: " + port443 
+               " \r\nPort Status \r\nPort 80: \n" + port80 + " \r\nPort 443: \n" + port443 
     return toReturn
     
 def startBrowsing():
@@ -115,7 +115,7 @@ def startBrowsing():
     display.start()
     driver = webdriver.Chrome()
     return driver
-
+'''
 def portScan(url,portNo):
     TCPsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     TCPsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -126,6 +126,18 @@ def portScan(url,portNo):
             status = "Open"
         else: status = "Close"
     except:
+        status = "Invalid URL"
+    return status
+'''
+def portScan(url, portNo):
+    params = {"remoteAddress": url, "portNumber": portNo}
+    r = requests.post("https://ports.yougetsignal.com/check-port.php", params)
+    page = r.text
+    if "/img/flag_green.gif" in page:
+        status = "Open"
+    elif "/img/flag_red.gif" in page:
+        status = "Close"
+    else:
         status = "Invalid URL"
     return status
 	
@@ -176,16 +188,38 @@ def vtAPIscan(md5, key):
 
     antivirusList = ["Fortinet", "Kaspersky", "McAfee", "Symantec", "TrendMicro", "TrendMicro-Housecall"]
 
-    if response.text:
-        json_response = response.json()
-        #print (json_response)
-        result = getScanResults(json_response, antivirusList)
-
     comment = ""
 
+    if response.text:
+        res = json.loads(response.text)
+
+        for antivirus in antivirusList:
+            try:
+                res = s["scans"]
+                try:
+                    d = s[antivirus]
+                    
+                    if d["detected"] == True:
+                        result = d["result"]
+                        update = d["update"]
+                    elif d["detected"] == False:
+                        result = "Not Detected"
+                        update = d["update"]
+                except KeyError:
+                    result= "Not Mentioned"
+                    update= "N/A"
+                    
+            except KeyError:
+                result = "File not found"
+                update = "N/A"
+           
+            comment += antivirus + " Result: " + result + " \nUpdate: " + update + "\n"
+            print(comment)
+
+    '''
     for antivirus in antivirusList:
         comment += antivirus + " Result:  " + "".join(result[antivirus]) + " \n " + "Update:  " + "".join(result[antivirus + " Scan Date"]) + " \n "
-
+    '''
     r.append({"types": ["md5"], "values": [md5], "comment": comment})
 
     return r
@@ -259,10 +293,18 @@ def Sucuri(url):
     return toReturn
 	
 def Quttera(url):
-    driver = startBrowsing()
-    driver.get("http://quttera.com/detailed_report/" + url)
 
+    status = "N/A"
+    driver = startBrowsing()
     print("Scanning " + url + " on Quttera...")
+    try:
+        driver.get("http://quttera.com/detailed_report/" + url)
+    except TimeoutException:
+        print("Scan failed")
+        return status
+
+
+    #print("Scanning " + url + " on Quttera...")
 
     '''	
     try:
@@ -317,6 +359,7 @@ def Quttera(url):
         else: 
             status = "Unreachable"
     
+    print(status)
     return status		
 	
 def virustotal(url):
@@ -336,7 +379,7 @@ def virustotal(url):
     
 
     try:
-        reanalyze = WebDriverWait(driver, 300).until(
+        reanalyze = WebDriverWait(driver, 30).until(
             EC.visibility_of_element_located((By.XPATH, "//a[@id='btn-url-reanalyse']"))
         )
     except TimeoutException:
