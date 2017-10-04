@@ -28,7 +28,7 @@ moduleinfo = {'version': '1', 'author': 'SSKYAU@OGCIO',
               'module-type': ['expansion']}
 
 # config fields that your code expects from the site admin
-moduleconfig = ["VTapikey"]
+moduleconfig = ["VTapikey","MISPurl", "MISPkey"]
 
 def init(url,key):
     return PyMISP(url,key, False, 'json')
@@ -41,6 +41,8 @@ def handler(q=False):
     q = json.loads(q)
 	
     key = q["config"]["VTapikey"]
+    MISPurl = q["config"]["MISPurl"]
+    MISPkey = q["config"]["MISPkey"]
 
     r = {"results": []}
 
@@ -93,7 +95,7 @@ def handler(q=False):
             uniq.append(res)
     r["results"] = uniq
   
-    delete_mispAttribute(q,ioc)
+    delete_mispAttribute(q,ioc, MISPurl, MISPkey)
 
     return r
 
@@ -141,10 +143,10 @@ def portScan(url, portNo):
         status = "Invalid URL"
     return status
 	
-def delete_mispAttribute(q, ioc):
+def delete_mispAttribute(q, ioc, MISPurl, MISPkey):
 
-    myMISPurl = 'http://192.168.56.50'
-    myMISPkey = '2WGtsQVM8ThD72afNgwu8Dd9F2hPUBIcOPuMtJRE'
+    myMISPurl = MISPurl
+    myMISPkey = MISPkey
     misp = init(myMISPurl, myMISPkey)
 
     eid = q["event_id"]
@@ -189,13 +191,13 @@ def vtAPIscan(md5, key):
     antivirusList = ["Fortinet", "Kaspersky", "McAfee", "Symantec", "TrendMicro", "TrendMicro-Housecall"]
 
     comment = ""
-
+   
     if response.text:
         res = json.loads(response.text)
 
         for antivirus in antivirusList:
             try:
-                res = s["scans"]
+                s = res["scans"]
                 try:
                     d = s[antivirus]
                     
