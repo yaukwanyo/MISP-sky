@@ -10,31 +10,33 @@ from datetime import datetime
 def checkjson(m):
 
     m = json.loads(m)
-    #try:
-    event = m["Event"]
-    cursor = ConnectToMySQL()     
-    insert_stmt = (
-        "INSERT INTO `events` (event_id, orgc_id, org_id, create_date, threat_level_id, info, published, attribute_count, analysis, timestamp, distribution, sharing_group_id, event_uuid, org_uuid, email_sent) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)" 
-    )
-    data = (int(event["id"]),
-            int(event["orgc_id"]), 
-            int(event["org_id"]), 
-            datetime.strptime(event["date"], '%Y-%m-%d'),
-            int(event["threat_level_id"]), 
-            event["info"], 
-            int(event["published"]), 
-            int(event["attribute_count"]), 
-            int(event["analysis"]), 
-            int(event["timestamp"]), 
-            int(event["distribution"]), 
-            int(event["sharing_group_id"]),
-            event["uuid"], 
-            event["Org"]["uuid"], 
-            0
-    )
-    cursor.execute(insert_stmt, data)
-    result = cursor.fetchone()
-    print(result) 
+    try:
+        event = m["Event"]
+        cursor = ConnectToMySQL()     
+        insert_stmt = (
+            "INSERT INTO `events` (event_id, orgc_id, org_id, create_date, threat_level_id, info, published, attribute_count, analysis, timestamp, distribution, sharing_group_id, event_uuid, org_uuid, email_sent) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)" 
+        )
+        data = (int(event["id"]),
+                int(event["orgc_id"]), 
+                int(event["org_id"]), 
+                datetime.strptime(event["date"], '%Y-%m-%d'),
+                int(event["threat_level_id"]), 
+                event["info"], 
+                int(event["published"]), 
+                int(event["attribute_count"]), 
+                int(event["analysis"]), 
+                int(event["timestamp"]), 
+                int(event["distribution"]), 
+                int(event["sharing_group_id"]),
+                event["uuid"], 
+                event["Org"]["uuid"], 
+                0
+        )
+        cursor.execute(insert_stmt, data)
+        result = cursor.fetchone()
+        print(result) 
+    except:
+        print("Not an event")
 
 
 def ConnectToMySQL():
