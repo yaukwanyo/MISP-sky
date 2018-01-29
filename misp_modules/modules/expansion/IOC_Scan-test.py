@@ -18,8 +18,8 @@ from collections import OrderedDict
 import socket
 
 misperrors = {'error': 'Error'}
-mispattributes = {'input': ['url', 'hostname', 'domain', "ip-src", "ip-dst", "md5"],
-                  'output': ['url', 'hostname', 'domain', 'ip-src', 'ip-dst', 'md5']
+mispattributes = {'input': ['url', 'hostname', 'domain', "ip-src", "ip-dst", "md5", "sha256"],
+                  'output': ['url', 'hostname', 'domain', 'ip-src', 'ip-dst', 'md5', "sha256"]
                   }
 
 # possible module-types: 'expansion', 'hover' or both
@@ -81,7 +81,12 @@ def handler(q=False):
     if 'md5' in q:
         ioc = q["md5"]
         ioc_type = "md5"
-        r["results"] += vtAPIscan(q['md5'], key)
+        r["results"] += vtAPIscan(q['md5'], key, ioc_type)
+
+    if 'sha256' in q:
+        ioc = q['sha256']
+        ioc_type = 'sha256'
+        r['results'] += vtAPIscan(q['sha256'], key, ioc_type)
 
     if "url" in q:
         ioc = q["url"]
@@ -170,15 +175,15 @@ def delete_mispAttribute(q, ioc, MISPurl, MISPkey):
     return ""
 
 # Scan file hashes using virustotal's API
-def vtAPIscan(md5, key):
+def vtAPIscan(value, key, ioc_type):
 
     r = []
     result = []
 
-    params = {'resource': md5, 'apikey': key}
+    params = {'resource': value, 'apikey': key}
     headers = {'Accept-Encoding': "gzip, deflate", "User-Agent": "gzip, My Python requests library example client or username"}
 
-    # Request a rescan of the md5
+    # Request a rescan of the file hash
     response = requests.post('https://www.virustotal.com/vtapi/v2/file/rescan', params=params)
 
     # Get the rescanned results
@@ -212,10 +217,10 @@ def vtAPIscan(md5, key):
                 result = "File not found"
                 update = "N/A"
            
-            comment += antivirus + " Result: " + result + " \nUpdate: " + update + "\n"
+            comment += antivirus + " Result: " + result + " \n"
             print(comment)
 
-    r.append({"types": ["md5"], "values": [md5], "comment": comment})
+    r.append({"types": [ioc_type], "values": [value], "comment": comment})
 
     return r
 

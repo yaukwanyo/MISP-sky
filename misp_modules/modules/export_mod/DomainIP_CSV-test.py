@@ -67,7 +67,7 @@ def getsignal(comment):
     p80 = comment[stPos:endPos]
     stPos = st(comment, "Port 443: ")
     p443 = comment[stPos:]
-    result = "Port 80: \r\n" + p80 + "\r\n\r\nPort 443: " + p443
+    result = "Port 80: " + p80 + "\r\n\r\nPort 443: " + p443
     return result
 
 # Retrieve Sucuri scan results

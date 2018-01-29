@@ -15,7 +15,8 @@ moduleinfo = {'version': '1', 'author': 'Hannah Ward',
 
 
 fieldmap = {
-    "md5": "File"
+    "md5": "File",
+    "sha256": "File"
 }
 
 
