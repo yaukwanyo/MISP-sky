@@ -13,11 +13,11 @@ moduleinfo = {'version': '1', 'author': 'Hannah Ward',
 
 
 fieldmap = {
-    "domain": "Domains/IPs",
-    "hostname": "Domain/IPs",
-    "ip-src": "Domain/IPs",
-    "ip-dst": "Domain/IPs",
-    "url": "Domain/IPs"
+    "domain": "Domain",
+    "hostname": "Domain",
+    "ip-src": "IP",
+    "ip-dst": "IP",
+    "url": "Domain"
 }
 
 mispattributes = {'input':list(fieldmap.keys())}

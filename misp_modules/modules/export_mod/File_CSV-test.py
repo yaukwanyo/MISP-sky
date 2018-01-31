@@ -15,8 +15,8 @@ moduleinfo = {'version': '1', 'author': 'Hannah Ward',
 
 
 fieldmap = {
-    "md5": "File",
-    "sha256": "File"
+    "md5": "MD5",
+    "sha256": "SHA256"
 }
 
 
@@ -33,7 +33,7 @@ def handler(q=False):
     response = io.StringIO()
 
     # Define field names
-    writer = csv.DictWriter(response, fieldnames=["MD5", "Fortinet", "Kaspersky", "McAfee", "Symantec", "TrendMicro", "TrendMicro-Housecall"])
+    writer = csv.DictWriter(response, fieldnames=["Type", "Value", "Fortinet", "Kaspersky", "McAfee", "Symantec", "TrendMicro", "TrendMicro-Housecall"])
 
     writer.writeheader()
 
@@ -43,7 +43,8 @@ def handler(q=False):
 
                 # Write scan results to rows
                 writer.writerow({
-                    "MD5": attribute["value"],
+                    "Type": fieldmap[attribute["type"]],
+                    "Value": attribute["value"],
                     "Fortinet": Result(attribute["comment"],"Fortinet"),
                     "Kaspersky": Result(attribute["comment"],"Kaspersky"),
                     "McAfee": Result(attribute["comment"], "McAfee"),
